@@ -1,0 +1,7 @@
+# Files and folders ignored when publishing with `func azure functionapp publish`
+local.settings.json
+local.settings.json.example
+.git/
+.vscode/
+__pycache__/
+airplane_data.csv
