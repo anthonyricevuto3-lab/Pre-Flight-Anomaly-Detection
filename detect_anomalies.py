@@ -50,9 +50,10 @@ try:
     else:
         print("Everything is clear for take off")
 
-except FileNotFoundError as e:
-    print(f"ERROR: Required file not found - {e}")
-    sys.exit(1)
-except Exception as e:
-    print(f"ERROR: {str(e)}")
-    sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"ERROR: Required file not found - {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        sys.exit(1)
+main()
