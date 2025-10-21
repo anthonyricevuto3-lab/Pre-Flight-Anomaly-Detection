@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDEs and editors
+.vscode/
+*.swp
+*.swo
+.idea/
+
+# Local development settings
+local.settings.json
+
+# Azure Functions artifacts
+bin/
+obj/
+appsettings.json
+.python_packages/
+
+# Model files (unless you want to version control them)
+# models/*.pkl
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env

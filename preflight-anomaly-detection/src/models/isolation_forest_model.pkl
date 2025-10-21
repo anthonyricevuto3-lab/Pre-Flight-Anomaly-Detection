@@ -1,0 +1,5 @@
+This file is a serialized model file created using joblib, which contains the trained isolation forest model used for anomaly detection. Since it is a binary file, it cannot be represented in text format. You will need to create this file by training an isolation forest model and saving it using joblib. 
+
+Here is a placeholder comment for the file:
+
+# This file is intentionally left blank. Please create the isolation forest model and save it using joblib.
