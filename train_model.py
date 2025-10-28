@@ -35,6 +35,121 @@ def _save_model(obj, path: Path) -> None:
             pickle.dump(obj, fh)
 
 
+def _randomize_csv_file(csv_path: Path, output_path: Path = None) -> Path:
+    """
+    Create a randomized version of the CSV file with variations in the data.
+    
+    :param csv_path: Path to the original CSV file
+    :param output_path: Path for the randomized CSV (if None, overwrites original)
+    :return: Path to the randomized CSV file
+    """
+    if output_path is None:
+        output_path = csv_path
+    
+    rows = []
+    header = None
+    
+    # Read the original CSV
+    with csv_path.open("r", newline="") as f:
+        reader = csv.DictReader(f)
+        header = reader.fieldnames
+        for row in reader:
+            rows.append(row)
+    
+    if not rows:
+        raise ValueError("CSV file is empty")
+    
+    print(f"DEBUG: Read {len(rows)} rows from original CSV")
+    
+    # Randomize the data
+    randomized_rows = []
+    
+    for i, row in enumerate(rows):
+        new_row = row.copy()
+        
+        # Add timestamp variation (±5 seconds)
+        if 'timestamp' in new_row:
+            original_time = float(new_row['timestamp'])
+            time_variation = random.uniform(-5, 5)
+            new_row['timestamp'] = str(max(0, original_time + time_variation))
+        
+        # Add variations to numerical columns
+        for col in ['rpm', 'temperature', 'pressure', 'voltage']:
+            if col in new_row:
+                try:
+                    original_value = float(new_row[col])
+                    # Add 3-8% random variation
+                    variation_factor = random.uniform(0.03, 0.08)
+                    variation = random.uniform(-variation_factor, variation_factor) * original_value
+                    new_value = original_value + variation
+                    
+                    # Round to appropriate decimal places
+                    if col == 'rpm':
+                        new_value = round(new_value)
+                    else:
+                        new_value = round(new_value, 1)
+                    
+                    new_row[col] = str(new_value)
+                except ValueError:
+                    pass  # Skip if can't convert to float
+        
+        randomized_rows.append(new_row)
+    
+    # Shuffle the rows (except header)
+    random.shuffle(randomized_rows)
+    
+    # Add some duplicate rows with slight variations (10% more data)
+    additional_rows = []
+    num_additional = max(1, len(randomized_rows) // 10)
+    
+    for _ in range(num_additional):
+        base_row = random.choice(randomized_rows).copy()
+        
+        # Add slight variations to the duplicate
+        for col in ['rpm', 'temperature', 'pressure', 'voltage']:
+            if col in base_row:
+                try:
+                    original_value = float(base_row[col])
+                    small_variation = random.uniform(-0.02, 0.02) * original_value
+                    new_value = original_value + small_variation
+                    
+                    if col == 'rpm':
+                        new_value = round(new_value)
+                    else:
+                        new_value = round(new_value, 1)
+                    
+                    base_row[col] = str(new_value)
+                except ValueError:
+                    pass
+        
+        additional_rows.append(base_row)
+    
+    # Combine original randomized rows with additional variations
+    all_rows = randomized_rows + additional_rows
+    random.shuffle(all_rows)  # Final shuffle
+    
+    # Write the randomized CSV
+    with output_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        writer.writeheader()
+        writer.writerows(all_rows)
+    
+    print(f"DEBUG: Created randomized CSV with {len(all_rows)} rows at {output_path}")
+    return output_path
+
+
+def _backup_original_csv(csv_path: Path) -> Path:
+    """Create a backup of the original CSV file if it doesn't exist."""
+    backup_path = csv_path.with_suffix('.csv.original')
+    
+    if not backup_path.exists():
+        print(f"DEBUG: Creating backup of original CSV at {backup_path}")
+        with csv_path.open("r") as src, backup_path.open("w") as dst:
+            dst.write(src.read())
+    
+    return backup_path
+
+
 def _randomize_data(rows: List[List[float]], randomization_factor: float = 0.1) -> List[List[float]]:
     """
     Apply randomization to the training data to create variations.
@@ -244,8 +359,9 @@ def main() -> None:
     """Train and persist a dependency-free anomaly model from CSV REQUIRED_FEATURES.
 
     - Validates the presence of DATA_PATH.
+    - Creates a backup of the original CSV file.
+    - Randomizes the CSV file with new data variations.
     - Ensures all REQUIRED_FEATURES exist in the training CSV.
-    - Randomizes the training data for variety.
     - Trains a robust-statistics-based anomaly model with fixed params.
     - Saves the model to DEFAULT_MODEL_PATH.
     """
@@ -256,24 +372,27 @@ def main() -> None:
     random.seed(int(time.time()))
     print(f"DEBUG: Random seed set to: {int(time.time())}")
 
-    print(f"DEBUG: reading CSV -> {DATA_PATH}")
-    X = _read_required_columns_from_csv(DATA_PATH, REQUIRED_FEATURES)
-    print(f"DEBUG: loaded {len(X)} valid rows with {len(REQUIRED_FEATURES)} features")
+    # Create backup of original CSV file (only once)
+    backup_path = _backup_original_csv(DATA_PATH)
+    
+    # Randomize the CSV file itself
+    print("DEBUG: Randomizing CSV file...")
+    randomized_csv_path = _randomize_csv_file(DATA_PATH)
+    
+    print(f"DEBUG: reading randomized CSV -> {randomized_csv_path}")
+    X = _read_required_columns_from_csv(randomized_csv_path, REQUIRED_FEATURES)
+    print(f"DEBUG: loaded {len(X)} valid rows with {len(REQUIRED_FEATURES)} features from randomized CSV")
 
-    # Apply randomization techniques
-    print("DEBUG: Applying data randomization...")
+    # Apply additional in-memory randomization techniques
+    print("DEBUG: Applying additional data processing...")
     
-    # 1. Shuffle and sample the data (use 80% of original data)
-    X = _shuffle_and_sample_data(X, sample_ratio=0.8)
-    print(f"DEBUG: After shuffling and sampling: {len(X)} rows")
+    # 1. Shuffle the data
+    random.shuffle(X)
+    print(f"DEBUG: Data shuffled")
     
-    # 2. Add noise to create variations
-    X = _randomize_data(X, randomization_factor=0.05)  # 5% noise
-    print(f"DEBUG: Applied 5% randomization noise")
-    
-    # 3. Augment data to create more training examples
-    X = _augment_data(X, augmentation_factor=2)  # Double the dataset
-    print(f"DEBUG: After data augmentation: {len(X)} rows")
+    # 2. Add slight noise for more variation
+    X = _randomize_data(X, randomization_factor=0.02)  # 2% additional noise
+    print(f"DEBUG: Applied 2% additional randomization noise")
 
     # Train the lightweight model. Hyperparameters chosen to be conservative.
     model = SimpleAnomalyModel(
@@ -285,6 +404,7 @@ def main() -> None:
     _save_model(model, DEFAULT_MODEL_PATH)
     print(f"Model trained and saved to {DEFAULT_MODEL_PATH}")
     print(f"Model trained on {len(X)} randomized data points")
+    print(f"Original CSV backed up to: {backup_path}")
 
 
 if __name__ == "__main__":
