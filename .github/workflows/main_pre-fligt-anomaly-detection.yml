@@ -69,11 +69,9 @@ jobs:
           rm release.zip
         
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_3D746442248B4834BCFE27E0D0A9C075 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_7DD0DDC7796948F6959B36E8FC9230E2 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_3520E4A62DD743C38E93AB285A7A1951 }}
+          creds: ${{ secrets.AZURE_RBAC_CREDENTIALS }} # set up AZURE_RBAC_CREDENTIALS secret in your repository
 
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
@@ -82,4 +80,5 @@ jobs:
           app-name: 'Pre-Fligt-Anomaly-Detection'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          # Removed publish-profile to use Azure RBAC
           

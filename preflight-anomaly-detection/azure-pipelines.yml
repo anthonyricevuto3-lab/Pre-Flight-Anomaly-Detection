@@ -61,12 +61,16 @@ print('Data and model verification successful!')
 "
   displayName: 'Verify Data and Model'
 
-- script: |
-    source .venv/bin/activate
-    func azure functionapp publish pre-flight-anomaly-detection --python
-  displayName: 'Deploy to Azure Functions'
-  env:
-    AZURE_FUNCTIONAPP_PUBLISH_PROFILE: $(AZURE_FUNCTIONAPP_PUBLISH_PROFILE)
+
+- task: AzureCLI@2
+  inputs:
+  azureSubscription: '8d1e82fa-4fb3-48ee-99a2-b3f5784287a2' # Azure subscription ID
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      source .venv/bin/activate
+      func azure functionapp publish Pre-Fligt-Anomaly-Detection --python
+  displayName: 'Deploy to Azure Functions (RBAC)'
 
       X = df[['rpm', 'temperature', 'pressure', 'voltage']]
       preds = model.predict(X)
