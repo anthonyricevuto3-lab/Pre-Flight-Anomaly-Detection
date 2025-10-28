@@ -1,16 +1,62 @@
 import azure.functions as func
 import json
 import logging
+import datetime
 from typing import Dict, List, Union
 
 from anomaly_detection import detect_anomalies_from_records
 
 app = func.FunctionApp()
 
-@app.route(route="detect_anomalies", auth_level=func.AuthLevel.FUNCTION)
+@app.route(route="health", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def health_check(req: func.HttpRequest) -> func.HttpResponse:
+    """Health check endpoint for monitoring"""
+    logging.info('Health check request received')
+    
+    health_data = {
+        "status": "healthy",
+        "service": "Pre-Flight Anomaly Detection",
+        "version": "1.0.0",
+        "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+    }
+    
+    return func.HttpResponse(
+        json.dumps(health_data, indent=2),
+        mimetype="application/json",
+        status_code=200
+    )
+
+@app.route(route="detect_anomalies", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
 def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Processing anomaly detection request')
 
+    # Handle GET request for testing
+    if req.method == "GET":
+        sample_data = {
+            "message": "Pre-Flight Anomaly Detection API is running!",
+            "endpoints": {
+                "POST /api/detect_anomalies": "Submit sensor readings for anomaly detection",
+                "GET /api/detect_anomalies": "Get API information and sample data"
+            },
+            "sample_request": {
+                "method": "POST",
+                "body": {
+                    "altitude": 35000,
+                    "airspeed": 450,
+                    "engine_temp": 850,
+                    "fuel_flow": 2500,
+                    "hydraulic_pressure": 3000
+                }
+            },
+            "function_url": f"https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies"
+        }
+        return func.HttpResponse(
+            json.dumps(sample_data, indent=2),
+            mimetype="application/json",
+            status_code=200
+        )
+
+    # Handle POST request for anomaly detection
     try:
         req_body = req.get_json()
     except ValueError:
