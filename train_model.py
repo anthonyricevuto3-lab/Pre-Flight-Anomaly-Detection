@@ -3,6 +3,8 @@ from __future__ import annotations
 
 # Diagnostic imports and early environment checks to help debug missing packages
 import sys
+import random
+import time
 from pathlib import Path
 from typing import List, Dict, Tuple, Iterable, Optional
 import csv
@@ -31,6 +33,75 @@ def _save_model(obj, path: Path) -> None:
     else:
         with path.open("wb") as fh:
             pickle.dump(obj, fh)
+
+
+def _randomize_data(rows: List[List[float]], randomization_factor: float = 0.1) -> List[List[float]]:
+    """
+    Apply randomization to the training data to create variations.
+    
+    :param rows: Original data rows
+    :param randomization_factor: Amount of noise to add (as fraction of value)
+    :return: Randomized data rows
+    """
+    randomized_rows = []
+    
+    for row in rows:
+        new_row = []
+        for value in row:
+            # Add random noise: value +/- (randomization_factor * value)
+            noise = random.uniform(-randomization_factor, randomization_factor) * value
+            new_value = value + noise
+            new_row.append(new_value)
+        randomized_rows.append(new_row)
+    
+    return randomized_rows
+
+
+def _shuffle_and_sample_data(rows: List[List[float]], sample_ratio: float = 0.8) -> List[List[float]]:
+    """
+    Shuffle the data and optionally sample a subset for training.
+    
+    :param rows: Original data rows
+    :param sample_ratio: Fraction of data to use for training (0.0 to 1.0)
+    :return: Shuffled and sampled data
+    """
+    # Make a copy and shuffle
+    shuffled_rows = rows.copy()
+    random.shuffle(shuffled_rows)
+    
+    # Sample a subset if requested
+    if 0 < sample_ratio < 1.0:
+        sample_size = int(len(shuffled_rows) * sample_ratio)
+        shuffled_rows = shuffled_rows[:sample_size]
+    
+    return shuffled_rows
+
+
+def _augment_data(rows: List[List[float]], augmentation_factor: int = 2) -> List[List[float]]:
+    """
+    Create additional synthetic data points based on existing data.
+    
+    :param rows: Original data rows
+    :param augmentation_factor: How many times to multiply the dataset
+    :return: Augmented dataset
+    """
+    if augmentation_factor <= 1:
+        return rows
+    
+    augmented_rows = rows.copy()
+    
+    for _ in range(augmentation_factor - 1):
+        # Create variations of existing data
+        for row in rows:
+            new_row = []
+            for value in row:
+                # Add small random variation (5% of original value)
+                variation = random.uniform(-0.05, 0.05) * value
+                new_value = value + variation
+                new_row.append(new_value)
+            augmented_rows.append(new_row)
+    
+    return augmented_rows
 
 
 def _median(values: List[float]) -> float:
@@ -174,15 +245,35 @@ def main() -> None:
 
     - Validates the presence of DATA_PATH.
     - Ensures all REQUIRED_FEATURES exist in the training CSV.
+    - Randomizes the training data for variety.
     - Trains a robust-statistics-based anomaly model with fixed params.
     - Saves the model to DEFAULT_MODEL_PATH.
     """
     if not DATA_PATH.exists():
         raise FileNotFoundError(f"Training data not found at {DATA_PATH}")
 
+    # Set random seed based on current time for different results each run
+    random.seed(int(time.time()))
+    print(f"DEBUG: Random seed set to: {int(time.time())}")
+
     print(f"DEBUG: reading CSV -> {DATA_PATH}")
     X = _read_required_columns_from_csv(DATA_PATH, REQUIRED_FEATURES)
     print(f"DEBUG: loaded {len(X)} valid rows with {len(REQUIRED_FEATURES)} features")
+
+    # Apply randomization techniques
+    print("DEBUG: Applying data randomization...")
+    
+    # 1. Shuffle and sample the data (use 80% of original data)
+    X = _shuffle_and_sample_data(X, sample_ratio=0.8)
+    print(f"DEBUG: After shuffling and sampling: {len(X)} rows")
+    
+    # 2. Add noise to create variations
+    X = _randomize_data(X, randomization_factor=0.05)  # 5% noise
+    print(f"DEBUG: Applied 5% randomization noise")
+    
+    # 3. Augment data to create more training examples
+    X = _augment_data(X, augmentation_factor=2)  # Double the dataset
+    print(f"DEBUG: After data augmentation: {len(X)} rows")
 
     # Train the lightweight model. Hyperparameters chosen to be conservative.
     model = SimpleAnomalyModel(
@@ -193,6 +284,7 @@ def main() -> None:
 
     _save_model(model, DEFAULT_MODEL_PATH)
     print(f"Model trained and saved to {DEFAULT_MODEL_PATH}")
+    print(f"Model trained on {len(X)} randomized data points")
 
 
 if __name__ == "__main__":
