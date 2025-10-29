@@ -140,14 +140,50 @@ def _read_and_randomize_csv(csv_path: Path) -> List[List[float]]:
 
 def train_fresh_model() -> SimpleAnomalyModel:
     """Train a new model with randomized data."""
+    logging.info(f"Looking for training data at: {DATA_PATH}")
+    logging.info(f"Current working directory: {Path.cwd()}")
+    logging.info(f"Function file location: {Path(__file__).resolve().parent}")
+    
+    # List files in the function directory for debugging
+    try:
+        function_dir = Path(__file__).resolve().parent
+        files_in_dir = list(function_dir.iterdir())
+        logging.info(f"Files in function directory: {[f.name for f in files_in_dir]}")
+    except Exception as e:
+        logging.error(f"Error listing files in function directory: {e}")
+    
     if not DATA_PATH.exists():
-        raise FileNotFoundError(f"Training data not found at {DATA_PATH}")
+        # Try alternative paths
+        alternative_paths = [
+            Path.cwd() / "airplane_data.csv",
+            Path("/home/site/wwwroot/airplane_data.csv"),
+            Path("./airplane_data.csv")
+        ]
+        
+        for alt_path in alternative_paths:
+            logging.info(f"Trying alternative path: {alt_path}")
+            if alt_path.exists():
+                logging.info(f"Found training data at alternative path: {alt_path}")
+                global DATA_PATH
+                DATA_PATH = alt_path
+                break
+        else:
+            error_msg = f"Training data not found at {DATA_PATH} or any alternative paths: {alternative_paths}"
+            logging.error(error_msg)
+            raise FileNotFoundError(error_msg)
+    
+    logging.info(f"Using training data from: {DATA_PATH}")
     
     # Set random seed based on current time for different results each run
     random.seed(int(time.time()))
     
-    # Read and randomize training data
-    training_data = _read_and_randomize_csv(DATA_PATH)
+    try:
+        # Read and randomize training data
+        training_data = _read_and_randomize_csv(DATA_PATH)
+        logging.info(f"Successfully loaded {len(training_data)} training samples")
+    except Exception as e:
+        logging.error(f"Error reading/randomizing CSV data: {e}")
+        raise
     
     # Train the model
     model = SimpleAnomalyModel(
@@ -241,7 +277,32 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # Train a fresh model with randomized data for each request
         logging.info("Training fresh model with randomized data...")
-        fresh_model = get_fresh_model()
+        try:
+            fresh_model = get_fresh_model()
+        except FileNotFoundError as e:
+            logging.error(f"Training data file not found: {e}")
+            error_response = {
+                "error": "Training data file not found",
+                "details": str(e),
+                "data_source_expected": str(DATA_PATH),
+                "message": "The airplane_data.csv file is missing from the deployment"
+            }
+            return func.HttpResponse(
+                json.dumps(error_response, indent=2),
+                mimetype="application/json",
+                status_code=500
+            )
+        except Exception as e:
+            logging.error(f"Error training model: {e}")
+            error_response = {
+                "error": "Model training failed",
+                "details": str(e)
+            }
+            return func.HttpResponse(
+                json.dumps(error_response, indent=2),
+                mimetype="application/json",
+                status_code=500
+            )
         
         # Convert readings to the format expected by our model
         processed_readings = []
