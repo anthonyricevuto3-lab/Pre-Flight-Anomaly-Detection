@@ -272,16 +272,36 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         
         logging.info(f"Model retrained and processed {len(processed_readings)} readings")
         
-        response = {
-            "anomalies_detected": len(anomalous_readings) > 0,
-            "anomalous_readings": anomalous_readings,
-            "total_readings": len(processed_readings),
-            "model_info": {
-                "freshly_trained": True,
-                "training_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-                "features_used": REQUIRED_FEATURES
+        # Create clean output showing data source and anomaly results
+        if len(anomalous_readings) > 0:
+            anomaly_message = f"ANOMALIES DETECTED: {len(anomalous_readings)} out of {len(processed_readings)} readings flagged as anomalous"
+            
+            # Format each anomaly with its values
+            anomaly_details = []
+            for i, anomaly in enumerate(anomalous_readings, 1):
+                anomaly_text = f"Anomaly {i}: "
+                anomaly_values = []
+                for feature in REQUIRED_FEATURES:
+                    anomaly_values.append(f"{feature}={anomaly[feature]}")
+                anomaly_text += ", ".join(anomaly_values)
+                anomaly_details.append(anomaly_text)
+            
+            response = {
+                "data_source": f"Training data read from: {DATA_PATH.name}",
+                "analysis_result": anomaly_message,
+                "anomalies": anomaly_details,
+                "anomalous_data": anomalous_readings,
+                "total_readings_analyzed": len(processed_readings)
             }
-        }
+        else:
+            response = {
+                "data_source": f"Training data read from: {DATA_PATH.name}",
+                "analysis_result": f"NO ANOMALIES DETECTED: All {len(processed_readings)} readings are within normal parameters",
+                "anomalies": [],
+                "anomalous_data": [],
+                "total_readings_analyzed": len(processed_readings)
+            }
+        
         return func.HttpResponse(
             json.dumps(response, indent=2),
             mimetype="application/json",
