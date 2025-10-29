@@ -3,12 +3,12 @@
 ## Public Function URLs
 
 Your Azure Function App is deployed and accessible at:
-- **Base URL**: `https://pre-fligt-anomaly-detection.azurewebsites.net`
+- **Base URL**: `https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net`
 
 ## Available Endpoints
 
 ### 1. Health Check
-- **URL**: `https://pre-fligt-anomaly-detection.azurewebsites.net/api/health`
+- **URL**: `https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/health`
 - **Method**: GET
 - **Purpose**: Check if the service is running
 - **Authentication**: None (Public)
@@ -24,7 +24,7 @@ Your Azure Function App is deployed and accessible at:
 ```
 
 ### 2. Anomaly Detection
-- **URL**: `https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies`
+- **URL**: `https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies`
 - **Methods**: GET, POST
 - **Authentication**: None (Public)
 
@@ -33,7 +33,7 @@ Returns API documentation and sample usage.
 
 **Example**: Open in browser or use curl:
 ```bash
-curl https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies
+curl https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies
 ```
 
 #### POST Request (Anomaly Detection)
@@ -42,11 +42,10 @@ Submit sensor readings for anomaly analysis.
 **Request Body** (JSON):
 ```json
 {
-  "altitude": 35000,
-  "airspeed": 450,
-  "engine_temp": 850,
-  "fuel_flow": 2500,
-  "hydraulic_pressure": 3000
+  "rpm": 1500,
+  "temperature": 75.0,
+  "pressure": 3000.0,
+  "voltage": 28.0
 }
 ```
 
@@ -65,45 +64,43 @@ Submit sensor readings for anomaly analysis.
 
 1. **Health Check**:
 ```bash
-curl https://pre-fligt-anomaly-detection.azurewebsites.net/api/health
+curl https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/health
 ```
 
 2. **Get API Info**:
 ```bash
-curl https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies
+curl https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies
 ```
 
 3. **Submit Normal Data**:
 ```bash
-curl -X POST https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies \
+curl -X POST https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies \
   -H "Content-Type: application/json" \
   -d '{
-    "altitude": 35000,
-    "airspeed": 450,
-    "engine_temp": 850,
-    "fuel_flow": 2500,
-    "hydraulic_pressure": 3000
+    "rpm": 1500,
+    "temperature": 75.0,
+    "pressure": 3000.0,
+    "voltage": 28.0
   }'
 ```
 
 4. **Submit Anomalous Data**:
 ```bash
-curl -X POST https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies \
+curl -X POST https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies \
   -H "Content-Type: application/json" \
   -d '{
-    "altitude": 35000,
-    "airspeed": 450,
-    "engine_temp": 1200,
-    "fuel_flow": 5000,
-    "hydraulic_pressure": 1000
+    "rpm": 2500,
+    "temperature": 120.0,
+    "pressure": 1000.0,
+    "voltage": 15.0
   }'
 ```
 
 ### Using Browser
 
 You can test GET endpoints directly in your browser:
-- Health: https://pre-fligt-anomaly-detection.azurewebsites.net/api/health
-- API Info: https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies
+- Health: https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/health
+- API Info: https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies
 
 ### Using Python
 
@@ -129,11 +126,10 @@ python test_public_api.py
   "anomalies_detected": true,
   "anomalous_readings": [
     {
-      "altitude": 35000,
-      "airspeed": 450,
-      "engine_temp": 1200,
-      "fuel_flow": 5000,
-      "hydraulic_pressure": 1000,
+      "rpm": 2500,
+      "temperature": 120.0,
+      "pressure": 1000.0,
+      "voltage": 15.0,
       "anomaly_score": 0.85
     }
   ],

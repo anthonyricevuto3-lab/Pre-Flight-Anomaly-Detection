@@ -8,7 +8,7 @@ import json
 import time
 
 # Function App URL
-FUNCTION_APP_URL = "https://pre-fligt-anomaly-detection.azurewebsites.net"
+FUNCTION_APP_URL = "https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net"
 
 def test_health_endpoint():
     """Test the health check endpoint"""
@@ -48,20 +48,18 @@ def test_anomaly_detection():
     
     # Normal flight data
     normal_data = {
-        "altitude": 35000,
-        "airspeed": 450,
-        "engine_temp": 850,
-        "fuel_flow": 2500,
-        "hydraulic_pressure": 3000
+        "rpm": 1500,
+        "temperature": 75.0,
+        "pressure": 3000.0,
+        "voltage": 28.0
     }
     
     # Anomalous flight data (extreme values)
     anomalous_data = {
-        "altitude": 35000,
-        "airspeed": 450,
-        "engine_temp": 1200,  # Very high temperature
-        "fuel_flow": 5000,    # Very high fuel flow
-        "hydraulic_pressure": 1000  # Low pressure
+        "rpm": 2500,      # High RPM
+        "temperature": 120.0,  # High temperature
+        "pressure": 1000.0,    # Low pressure
+        "voltage": 15.0        # Low voltage
     }
     
     test_cases = [

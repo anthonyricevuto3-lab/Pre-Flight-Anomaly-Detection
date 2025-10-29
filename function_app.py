@@ -41,11 +41,10 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
             "sample_request": {
                 "method": "POST",
                 "body": {
-                    "altitude": 35000,
-                    "airspeed": 450,
-                    "engine_temp": 850,
-                    "fuel_flow": 2500,
-                    "hydraulic_pressure": 3000
+                    "rpm": 1500,
+                    "temperature": 75.0,
+                    "pressure": 3000.0,
+                    "voltage": 28.0
                 }
             },
             "function_url": f"https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies"
