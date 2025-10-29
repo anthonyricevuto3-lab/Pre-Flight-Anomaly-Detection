@@ -246,13 +246,16 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         # Convert readings to the format expected by our model
         processed_readings = []
         anomalous_readings = []
+        validation_errors = []
         
         for reading in readings:
             try:
                 # Validate that all required features are present
                 missing_features = [f for f in REQUIRED_FEATURES if f not in reading]
                 if missing_features:
-                    raise ValueError(f"Missing required features: {missing_features}")
+                    error_msg = f"Missing required features: {missing_features}. Required: {REQUIRED_FEATURES}"
+                    validation_errors.append(error_msg)
+                    continue
                 
                 # Extract feature values in the correct order
                 feature_values = [float(reading[feature]) for feature in REQUIRED_FEATURES]
@@ -267,8 +270,27 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
                 processed_readings.append(reading)
                 
             except (ValueError, KeyError) as e:
-                logging.warning(f"Skipping invalid reading: {e}")
+                validation_errors.append(f"Invalid reading: {e}")
                 continue
+        
+        # If no readings were processed, return an error with validation details
+        if len(processed_readings) == 0:
+            error_response = {
+                "error": "No valid readings could be processed",
+                "required_features": REQUIRED_FEATURES,
+                "validation_errors": validation_errors,
+                "example_valid_request": {
+                    "rpm": 1500,
+                    "temperature": 75.0,
+                    "pressure": 3000.0,
+                    "voltage": 28.0
+                }
+            }
+            return func.HttpResponse(
+                json.dumps(error_response, indent=2),
+                mimetype="application/json",
+                status_code=400
+            )
         
         logging.info(f"Model retrained and processed {len(processed_readings)} readings")
         
