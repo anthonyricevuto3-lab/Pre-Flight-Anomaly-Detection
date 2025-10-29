@@ -2,9 +2,171 @@ import azure.functions as func
 import json
 import logging
 import datetime
-from typing import Dict, List, Union
+import tempfile
+import os
+import csv
+import random
+import time
+import math
+import pickle
+from pathlib import Path
+from typing import Dict, List, Union, Tuple, Optional
 
-from anomaly_detection import detect_anomalies_from_records
+# Required features for anomaly detection
+REQUIRED_FEATURES = ["rpm", "temperature", "pressure", "voltage"]
+
+# Training data file path
+DATA_PATH = Path(__file__).resolve().parent / "airplane_data.csv"
+
+def _median(values: List[float]) -> float:
+    if not values:
+        raise ValueError("Cannot compute median of empty list")
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return s[mid]
+    return 0.5 * (s[mid - 1] + s[mid])
+
+def _mad(values: List[float], med: Optional[float] = None) -> float:
+    # Median Absolute Deviation (normalized with 1.4826 to approximate std under normality)
+    if med is None:
+        med = _median(values)
+    abs_dev = [abs(v - med) for v in values]
+    raw_mad = _median(abs_dev)
+    return 1.4826 * raw_mad
+
+class SimpleAnomalyModel:
+    """
+    A tiny, dependency-free replacement for IsolationForest.
+    """
+
+    def __init__(
+        self,
+        feature_names: List[str],
+        mad_threshold: float = 3.0,
+        min_features_over_threshold: int = 1,
+    ) -> None:
+        self.feature_names = feature_names
+        self.mad_threshold = float(mad_threshold)
+        self.min_features_over_threshold = int(min_features_over_threshold)
+        self._stats: Dict[str, Tuple[float, float]] = {}  # name -> (median, mad)
+
+    def fit(self, X: List[List[float]]) -> "SimpleAnomalyModel":
+        if not X:
+            raise ValueError("Training data is empty")
+        cols = list(zip(*X))  # column-wise
+        if len(cols) != len(self.feature_names):
+            raise ValueError("Feature count mismatch during fit")
+
+        for name, col in zip(self.feature_names, cols):
+            col_list = list(col)
+            med = _median(col_list)
+            mad = _mad(col_list, med=med)
+            # Prevent degenerate zero-MAD; use small epsilon so thresholding still works
+            if mad <= 1e-12:
+                mad = 1e-6
+            self._stats[name] = (med, mad)
+        return self
+
+    def predict(self, X: List[List[float]]) -> List[int]:
+        """
+        Mimic IsolationForest's predict: 1 for inliers, -1 for outliers.
+        """
+        labels: List[int] = []
+        for row in X:
+            over = 0
+            for (name, x) in zip(self.feature_names, row):
+                med, mad = self._stats[name]
+                if abs(x - med) > self.mad_threshold * mad:
+                    over += 1
+            labels.append(-1 if over >= self.min_features_over_threshold else 1)
+        return labels
+
+def _read_and_randomize_csv(csv_path: Path) -> List[List[float]]:
+    """Read CSV and apply randomization for training data variation."""
+    rows = []
+    
+    # Read the original CSV
+    with csv_path.open("r", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                # Extract required features as floats
+                data_row = [float(row[col]) for col in REQUIRED_FEATURES]
+                # Filter out NaN/inf rows
+                if any(math.isnan(v) or math.isinf(v) for v in data_row):
+                    continue
+                rows.append(data_row)
+            except (ValueError, KeyError):
+                continue  # Skip rows with missing or invalid data
+    
+    if not rows:
+        raise ValueError("No valid training data found")
+    
+    # Apply randomization to create variations
+    randomized_rows = []
+    for row in rows:
+        new_row = []
+        for value in row:
+            # Add 3-8% random variation
+            variation_factor = random.uniform(0.03, 0.08)
+            variation = random.uniform(-variation_factor, variation_factor) * value
+            new_value = value + variation
+            new_row.append(new_value)
+        randomized_rows.append(new_row)
+    
+    # Shuffle the rows
+    random.shuffle(randomized_rows)
+    
+    # Add some duplicate rows with slight variations (10% more data)
+    additional_rows = []
+    num_additional = max(1, len(randomized_rows) // 10)
+    
+    for _ in range(num_additional):
+        base_row = random.choice(randomized_rows).copy()
+        # Add slight variations to the duplicate
+        for i in range(len(base_row)):
+            original_value = base_row[i]
+            small_variation = random.uniform(-0.02, 0.02) * original_value
+            base_row[i] = original_value + small_variation
+        additional_rows.append(base_row)
+    
+    # Combine and final shuffle
+    all_rows = randomized_rows + additional_rows
+    random.shuffle(all_rows)
+    
+    return all_rows
+
+def train_fresh_model() -> SimpleAnomalyModel:
+    """Train a new model with randomized data."""
+    if not DATA_PATH.exists():
+        raise FileNotFoundError(f"Training data not found at {DATA_PATH}")
+    
+    # Set random seed based on current time for different results each run
+    random.seed(int(time.time()))
+    
+    # Read and randomize training data
+    training_data = _read_and_randomize_csv(DATA_PATH)
+    
+    # Train the model
+    model = SimpleAnomalyModel(
+        feature_names=REQUIRED_FEATURES,
+        mad_threshold=3.0,
+        min_features_over_threshold=1,
+    ).fit(training_data)
+    
+    return model
+
+# Global model cache
+_current_model: Optional[SimpleAnomalyModel] = None
+
+def get_fresh_model() -> SimpleAnomalyModel:
+    """Get a freshly trained model with randomized data."""
+    global _current_model
+    _current_model = train_fresh_model()
+    return _current_model
+
 
 app = func.FunctionApp()
 
@@ -77,14 +239,51 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     try:
-        anomalies = detect_anomalies_from_records(readings)
+        # Train a fresh model with randomized data for each request
+        logging.info("Training fresh model with randomized data...")
+        fresh_model = get_fresh_model()
+        
+        # Convert readings to the format expected by our model
+        processed_readings = []
+        anomalous_readings = []
+        
+        for reading in readings:
+            try:
+                # Validate that all required features are present
+                missing_features = [f for f in REQUIRED_FEATURES if f not in reading]
+                if missing_features:
+                    raise ValueError(f"Missing required features: {missing_features}")
+                
+                # Extract feature values in the correct order
+                feature_values = [float(reading[feature]) for feature in REQUIRED_FEATURES]
+                
+                # Use the fresh model to predict
+                prediction = fresh_model.predict([feature_values])[0]
+                
+                # If prediction is -1, it's an anomaly
+                if prediction == -1:
+                    anomalous_readings.append(reading)
+                
+                processed_readings.append(reading)
+                
+            except (ValueError, KeyError) as e:
+                logging.warning(f"Skipping invalid reading: {e}")
+                continue
+        
+        logging.info(f"Model retrained and processed {len(processed_readings)} readings")
+        
         response = {
-            "anomalies_detected": len(anomalies) > 0,
-            "anomalous_readings": anomalies,
-            "total_readings": len(readings),
+            "anomalies_detected": len(anomalous_readings) > 0,
+            "anomalous_readings": anomalous_readings,
+            "total_readings": len(processed_readings),
+            "model_info": {
+                "freshly_trained": True,
+                "training_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+                "features_used": REQUIRED_FEATURES
+            }
         }
         return func.HttpResponse(
-            json.dumps(response),
+            json.dumps(response, indent=2),
             mimetype="application/json",
             status_code=200
         )
