@@ -140,6 +140,8 @@ def _read_and_randomize_csv(csv_path: Path) -> List[List[float]]:
 
 def train_fresh_model() -> SimpleAnomalyModel:
     """Train a new model with randomized data."""
+    global DATA_PATH
+    
     logging.info(f"Looking for training data at: {DATA_PATH}")
     logging.info(f"Current working directory: {Path.cwd()}")
     logging.info(f"Function file location: {Path(__file__).resolve().parent}")
@@ -164,7 +166,6 @@ def train_fresh_model() -> SimpleAnomalyModel:
             logging.info(f"Trying alternative path: {alt_path}")
             if alt_path.exists():
                 logging.info(f"Found training data at alternative path: {alt_path}")
-                global DATA_PATH
                 DATA_PATH = alt_path
                 break
         else:
@@ -206,6 +207,79 @@ def get_fresh_model() -> SimpleAnomalyModel:
 
 app = func.FunctionApp()
 
+@app.route(route="debug", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def debug_function(req: func.HttpRequest) -> func.HttpResponse:
+    """Debug function to explore Azure file system and locate airplane_data.csv"""
+    import os
+    import sys
+    from pathlib import Path
+    
+    debug_info = {
+        "message": "Debug information for Azure deployment",
+        "current_working_directory": os.getcwd(),
+        "python_version": sys.version,
+        "python_executable": sys.executable,
+        "script_location": __file__,
+        "script_parent": str(Path(__file__).parent),
+        "environment_variables": {
+            "HOME": os.environ.get("HOME", "Not set"),
+            "WEBSITE_SITE_NAME": os.environ.get("WEBSITE_SITE_NAME", "Not set"),
+            "FUNCTIONS_WORKER_RUNTIME": os.environ.get("FUNCTIONS_WORKER_RUNTIME", "Not set"),
+            "AZURE_FUNCTIONS_ENVIRONMENT": os.environ.get("AZURE_FUNCTIONS_ENVIRONMENT", "Not set"),
+            "PWD": os.environ.get("PWD", "Not set"),
+        },
+        "file_system_exploration": {},
+        "csv_file_search": []
+    }
+    
+    # Explore common locations
+    locations_to_check = [
+        os.getcwd(),
+        str(Path(__file__).parent),
+        "/home/site/wwwroot",
+        "/tmp",
+        os.path.expanduser("~"),
+        "/",
+        str(Path(__file__).parent / "data"),
+        str(Path(__file__).parent / "src" / "data"),
+    ]
+    
+    for location in locations_to_check:
+        try:
+            if os.path.exists(location):
+                files = os.listdir(location)
+                debug_info["file_system_exploration"][location] = {
+                    "exists": True,
+                    "files": files[:20],  # Limit to first 20 files
+                    "total_files": len(files)
+                }
+                
+                # Check for CSV files specifically
+                csv_files = [f for f in files if f.endswith('.csv')]
+                if csv_files:
+                    debug_info["csv_file_search"].extend([f"{location}/{f}" for f in csv_files])
+            else:
+                debug_info["file_system_exploration"][location] = {"exists": False}
+        except Exception as e:
+            debug_info["file_system_exploration"][location] = {"error": str(e)}
+    
+    # Try to find airplane_data.csv specifically
+    search_patterns = ["airplane_data.csv", "*airplane*", "*.csv"]
+    for pattern in search_patterns:
+        try:
+            import glob
+            matches = glob.glob(f"/**/{pattern}", recursive=True)
+            if matches:
+                debug_info[f"search_{pattern}"] = matches[:10]  # Limit results
+        except Exception as e:
+            debug_info[f"search_{pattern}_error"] = str(e)
+    
+    return func.HttpResponse(
+        json.dumps(debug_info, indent=2),
+        mimetype="application/json",
+        status_code=200
+    )
+
 @app.route(route="health", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint for monitoring"""
@@ -228,30 +302,118 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
 def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Processing anomaly detection request')
 
-    # Handle GET request for testing
+    # Handle GET request - show all anomalies from CSV data
     if req.method == "GET":
-        sample_data = {
-            "message": "Pre-Flight Anomaly Detection API is running!",
-            "endpoints": {
-                "POST /api/detect_anomalies": "Submit sensor readings for anomaly detection",
-                "GET /api/detect_anomalies": "Get API information and sample data"
-            },
-            "sample_request": {
-                "method": "POST",
-                "body": {
-                    "rpm": 1500,
-                    "temperature": 75.0,
-                    "pressure": 3000.0,
-                    "voltage": 28.0
+        try:
+            # Train model and get all CSV data
+            model = train_fresh_model()
+            
+            # Read the CSV data again to analyze all rows
+            csv_data = _read_and_randomize_csv(DATA_PATH)
+            
+            # Calculate normal ranges from the training data
+            rpm_values = [row[0] for row in csv_data]
+            temp_values = [row[1] for row in csv_data]
+            pressure_values = [row[2] for row in csv_data]
+            voltage_values = [row[3] for row in csv_data]
+            
+            # Calculate median and MAD for normal ranges
+            rpm_median = _median(rpm_values)
+            rpm_mad = _mad(rpm_values, rpm_median)
+            temp_median = _median(temp_values)
+            temp_mad = _mad(temp_values, temp_median)
+            pressure_median = _median(pressure_values)
+            pressure_mad = _mad(pressure_values, pressure_median)
+            voltage_median = _median(voltage_values)
+            voltage_mad = _mad(voltage_values, voltage_median)
+            
+            # Define normal ranges (within 3 MAD of median)
+            normal_ranges = {
+                "rpm": {
+                    "min": round(rpm_median - (3 * rpm_mad), 2),
+                    "max": round(rpm_median + (3 * rpm_mad), 2),
+                    "median": round(rpm_median, 2),
+                    "unit": "revolutions per minute"
+                },
+                "temperature": {
+                    "min": round(temp_median - (3 * temp_mad), 2),
+                    "max": round(temp_median + (3 * temp_mad), 2),
+                    "median": round(temp_median, 2),
+                    "unit": "degrees Celsius"
+                },
+                "pressure": {
+                    "min": round(pressure_median - (3 * pressure_mad), 2),
+                    "max": round(pressure_median + (3 * pressure_mad), 2),
+                    "median": round(pressure_median, 2),
+                    "unit": "PSI (pounds per square inch)"
+                },
+                "voltage": {
+                    "min": round(voltage_median - (3 * voltage_mad), 2),
+                    "max": round(voltage_median + (3 * voltage_mad), 2),
+                    "median": round(voltage_median, 2),
+                    "unit": "volts"
                 }
-            },
-            "function_url": f"https://pre-fligt-anomaly-detection.azurewebsites.net/api/detect_anomalies"
-        }
-        return func.HttpResponse(
-            json.dumps(sample_data, indent=2),
-            mimetype="application/json",
-            status_code=200
-        )
+            }
+            
+            # Predict anomalies for all data
+            predictions = model.predict(csv_data)
+            
+            # Prepare response with all anomalies
+            all_anomalies = []
+            normal_readings = []
+            
+            for i, (row, prediction) in enumerate(zip(csv_data, predictions)):
+                reading_data = {
+                    "rpm": round(row[0], 2),
+                    "temperature": round(row[1], 2), 
+                    "pressure": round(row[2], 2),
+                    "voltage": round(row[3], 2)
+                }
+                
+                if prediction == -1:  # Anomaly detected
+                    all_anomalies.append({
+                        "reading_id": i + 1,
+                        "data": reading_data,
+                        "status": "ANOMALY"
+                    })
+                else:
+                    normal_readings.append({
+                        "reading_id": i + 1,
+                        "data": reading_data,
+                        "status": "NORMAL"
+                    })
+            
+            response_data = {
+                "message": "Complete Anomaly Analysis of Training Data",
+                "data_source": f"Analysis of {len(csv_data)} readings from airplane_data.csv",
+                "normal_operating_ranges": normal_ranges,
+                "summary": {
+                    "total_readings": len(csv_data),
+                    "anomalies_detected": len(all_anomalies),
+                    "normal_readings": len(normal_readings),
+                    "anomaly_percentage": round((len(all_anomalies) / len(csv_data)) * 100, 2)
+                },
+                "detected_anomalies": all_anomalies,
+                "normal_readings": normal_readings[:10],  # Show first 10 normal readings
+                "note": f"Normal ranges calculated using Median Absolute Deviation (MAD). Values outside these ranges are flagged as anomalies."
+            }
+            
+            return func.HttpResponse(
+                json.dumps(response_data, indent=2),
+                mimetype="application/json",
+                status_code=200
+            )
+            
+        except Exception as e:
+            logging.error(f"Error analyzing CSV data: {e}")
+            return func.HttpResponse(
+                json.dumps({
+                    "error": "Failed to analyze CSV data",
+                    "details": str(e)
+                }, indent=2),
+                mimetype="application/json",
+                status_code=500
+            )
 
     # Handle POST request for anomaly detection
     try:
