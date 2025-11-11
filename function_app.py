@@ -298,9 +298,20 @@ def health_check(req: func.HttpRequest) -> func.HttpResponse:
         status_code=200
     )
 
-@app.route(route="detect_anomalies", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST"])
+@app.route(route="detect_anomalies", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET", "POST", "OPTIONS"])
 def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Processing anomaly detection request')
+    
+    # CORS headers for GitHub Pages
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    }
+    
+    # Handle OPTIONS preflight request
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=200, headers=headers)
 
     # Handle GET request - show all anomalies from CSV data
     if req.method == "GET":
@@ -401,18 +412,17 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps(response_data, indent=2),
                 mimetype="application/json",
-                status_code=200
+                status_code=200,
+                headers=headers
             )
             
         except Exception as e:
             logging.error(f"Error analyzing CSV data: {e}")
             return func.HttpResponse(
-                json.dumps({
-                    "error": "Failed to analyze CSV data",
-                    "details": str(e)
-                }, indent=2),
+                json.dumps({"error": f"Error analyzing data: {str(e)}"}),
                 mimetype="application/json",
-                status_code=500
+                status_code=500,
+                headers=headers
             )
 
     # Handle POST request for anomaly detection
@@ -420,8 +430,10 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.get_json()
     except ValueError:
         return func.HttpResponse(
-            "Request body must be valid JSON containing sensor readings",
-            status_code=400
+            json.dumps({"error": "Request body must be valid JSON containing sensor readings"}),
+            mimetype="application/json",
+            status_code=400,
+            headers=headers
         )
 
     # Expect either a single reading or a list of readings
@@ -432,8 +444,10 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         readings = req_body
     else:
         return func.HttpResponse(
-            "Request body must be a single reading object or an array of readings",
-            status_code=400
+            json.dumps({"error": "Request body must be a single reading object or an array of readings"}),
+            mimetype="application/json",
+            status_code=400,
+            headers=headers
         )
 
     try:
@@ -452,7 +466,8 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps(error_response, indent=2),
                 mimetype="application/json",
-                status_code=500
+                status_code=500,
+                headers=headers
             )
         except Exception as e:
             logging.error(f"Error training model: {e}")
@@ -463,7 +478,8 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                 json.dumps(error_response, indent=2),
                 mimetype="application/json",
-                status_code=500
+                status_code=500,
+                headers=headers
             )
         
         # Convert readings to the format expected by our model
@@ -550,11 +566,14 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             json.dumps(response, indent=2),
             mimetype="application/json",
-            status_code=200
+            status_code=200,
+            headers=headers
         )
     except Exception as e:
         logging.error(f"Error processing anomaly detection: {str(e)}")
         return func.HttpResponse(
-            f"Error processing readings: {str(e)}",
-            status_code=500
+            json.dumps({"error": f"Error processing readings: {str(e)}"}),
+            mimetype="application/json",
+            status_code=500,
+            headers=headers
         )
