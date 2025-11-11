@@ -6,9 +6,11 @@
 }
 *{box-sizing:border-box}
 body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#071127 0%, #08112a 100%);color:var(--text);margin:0;padding:24px}
-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-header h1{margin:0;font-size:1.5rem}
-.byline a{color:var(--accent);text-decoration:none}
+header{text-align:center;margin-bottom:24px}
+header h1{margin:0 0 8px 0;font-size:2rem;color:var(--text)}
+.byline{margin:8px 0;font-size:1.1rem;color:rgba(230,238,248,0.8)}
+.byline a{color:var(--accent);text-decoration:none;font-weight:500}
+.byline a:hover{text-decoration:underline}
 main{max-width:880px;margin:18px auto}
 .intro{background:rgba(255,255,255,0.02);padding:14px;border-radius:8px;margin-bottom:14px}
 .controls{background:var(--card);padding:16px;border-radius:8px;margin-bottom:14px}

@@ -6,13 +6,22 @@ function el(id){return document.getElementById(id)}
 
 async function sendPayload(payload){
   const respEl = el('response');
-  respEl.textContent = 'Sending...';
+  respEl.textContent = 'Sending request to Azure Function...';
   try{
     const res = await fetch(FUNCTION_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify(payload)
     });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
     const text = await res.text();
     // try to pretty-print JSON
     try{
@@ -22,7 +31,8 @@ async function sendPayload(payload){
       respEl.textContent = text;
     }
   }catch(err){
-    respEl.textContent = 'Error: '+err.message;
+    respEl.textContent = `Error: ${err.message}\n\nTroubleshooting:\n- Check if Azure Function is running\n- Verify CORS headers are set\n- Check browser console for details\n\nFunction URL: ${FUNCTION_URL}`;
+    console.error('Fetch error:', err);
   }
 }
 
