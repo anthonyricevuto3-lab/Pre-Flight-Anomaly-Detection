@@ -1,6 +1,6 @@
 // Demo frontend script for Pre-Flight Anomaly Detection
 // Update FUNCTION_URL if your function is hosted elsewhere
-const FUNCTION_URL = '/api/detect_anomalies';
+const FUNCTION_URL = 'https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies';
 
 function el(id){return document.getElementById(id)}
 
