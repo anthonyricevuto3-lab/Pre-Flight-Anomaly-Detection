@@ -1,45 +1,42 @@
 # Pre-Flight Anomaly Detection
 
-This project provides a lightweight anomaly detection system for pre-flight aircraft sensor readings. It uses a robust statistical approach that is suitable for edge deployment, with minimal dependencies.
+This project provides a lightweight anomaly detection system for pre-flight aircraft sensor readings. It uses a robust statistical approach (median + MAD) and is designed to run as a small Azure Function with minimal external dependencies.
 
-## Features
+## Highlights
 
-- Trains a robust statistical model using Median Absolute Deviation (MAD)
-- Detects anomalies in sensor readings (rpm, temperature, pressure, voltage)
-- Provides both CLI and Azure Functions interfaces
-- Designed for edge deployment with minimal dependencies
+- Dynamic model training: the Azure Function trains a small robust model on each request using randomized/augmented CSV training data. This avoids a separate training step and keeps deployment simple.
+- Detects anomalies for key sensors: `rpm`, `temperature`, `pressure`, `voltage`.
+- Lightweight and dependency-friendly for edge and cloud deployments.
 
-## Quick Start
+## Quick Start (local)
 
-1. Set up Python virtual environment:
+1. Set up a Python virtual environment:
 
-```bash
+```powershell
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+.venv\Scripts\Activate.ps1   # on PowerShell
 pip install -r requirements.txt
 ```
 
-2. Train the model:
+2. Run the Function locally:
 
-```bash
-python train_model.py
-```
-
-3. Test anomaly detection locally:
-
-```bash
-python detect_anomalies.py airplane_data.csv
-```
-
-4. Run the Azure Function locally:
-
-```bash
+```powershell
+# Start the Functions host (Azure Functions Core Tools required)
 func start
 ```
 
+3. Test the API with a POST to `/api/detect_anomalies` (JSON body with rpm, temperature, pressure, voltage). The function will train a small model dynamically and return detected anomalies plus normal ranges.
+
+## Demo Frontend
+
+A small demo frontend is included at `frontend/index.html`. You can open it locally in a browser (or serve with a static server) to send sample payloads to the function and view responses.
+
+- Open `frontend/index.html` in your browser, or serve it from a static host.
+- Edit `frontend/script.js` to set `FUNCTION_URL` if your function is deployed remotely (defaults to `/api/detect_anomalies`).
+
 ## API Usage
 
-Send POST requests to the `/api/detect_anomalies` endpoint with JSON data:
+Send POST requests to the `/api/detect_anomalies` endpoint with JSON data (example):
 
 ```json
 {
@@ -50,35 +47,14 @@ Send POST requests to the `/api/detect_anomalies` endpoint with JSON data:
 }
 ```
 
-You can also send multiple readings as an array.
+The function replies with a JSON body containing anomaly flags, detected anomaly details, and calculated normal ranges.
 
-## Directory Structure
+## Notes on Training
 
-- `train_model.py`: Trains the anomaly detection model
-- `detect_anomalies.py`: CLI tool for anomaly detection
-- `function_app.py`: Azure Functions entry point
-- `anomaly_detection.py`: Core anomaly detection logic
-- `airplane_data.csv`: Sample training data
-- `models/`: Directory for trained models
+- The project no longer requires a separate `train_model.py` step in CI — training is handled dynamically in the function. This simplifies CI/CD and avoids missing-file errors.
 
-## Development
+## Repository / Demo
 
-1. Make sure to run `train_model.py` first to generate the model
-2. Test the CLI with sample data
-3. Run unit tests if available
-4. Start the Function app locally for API testing
+See the GitHub repo for code and deployment details: https://github.com/anthonyricevuto3-lab/Pre-Flight-Anomaly-Detection
 
-## Deployment
-
-1. Train the model locally first
-2. Deploy to Azure Functions using Azure CLI or VS Code
-3. Make sure to include the model file in your deployment
-
-## Requirements
-
-See `requirements.txt` for full dependencies. Key requirements:
-
-- Python 3.8+
-- azure-functions
-- pandas
-- joblib (optional, for efficient model persistence)
+If you'd like, I can also add a small GitHub Pages site to host the demo front-end publicly.

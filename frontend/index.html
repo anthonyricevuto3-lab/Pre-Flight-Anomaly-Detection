@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pre-Flight Anomaly Detection — Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Pre-Flight Anomaly Detection</h1>
+      <p class="byline">by <a href="https://www.linkedin.com/in/anthony-ricevuto-mle/" target="_blank">Anthony Ricevuto</a></p>
+    </header>
+
+    <main>
+      <section class="intro">
+        <p>This is a small demo frontend for the Pre-Flight Anomaly Detection Azure Function. It sends sample sensor data to the deployed function and displays the response (anomalies, normal ranges, and detected issues).</p>
+        <p class="note">Function URL used by this demo: <code id="function-url">/api/detect_anomalies</code> — update in <code>script.js</code> if your function is hosted elsewhere.</p>
+      </section>
+
+      <section class="controls">
+        <h2>Send Sample Payload</h2>
+        <textarea id="payload" rows="8">{
+  "rpm": 1500,
+  "temperature": 74,
+  "pressure": 3200,
+  "voltage": 28.5
+}</textarea>
+        <div class="actions">
+          <button id="send">Send to Function</button>
+          <button id="send-rand">Send Random</button>
+        </div>
+      </section>
+
+      <section class="results">
+        <h2>Response</h2>
+        <pre id="response">No response yet.</pre>
+      </section>
+    </main>
+
+    <footer>
+      <p>Project: <strong>Pre-Flight Anomaly Detection</strong> — Lightweight anomaly detection using robust statistics. See the <a href="https://github.com/anthonyricevuto3-lab/Pre-Flight-Anomaly-Detection" target="_blank">GitHub repository</a> for code.</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
