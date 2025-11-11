@@ -306,12 +306,15 @@ def detect_anomalies(req: func.HttpRequest) -> func.HttpResponse:
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type, Accept"
     }
     
     # Handle OPTIONS preflight request
     if req.method == "OPTIONS":
-        return func.HttpResponse(status_code=200, headers=headers)
+        return func.HttpResponse(
+            status_code=204,
+            headers=headers
+        )
 
     # Handle GET request - show all anomalies from CSV data
     if req.method == "GET":

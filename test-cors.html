@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>Testing Azure Function CORS</h1>
+    <button onclick="testFunction()">Test Function</button>
+    <pre id="result"></pre>
+    
+    <script>
+        async function testFunction() {
+            const url = 'https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies';
+            const result = document.getElementById('result');
+            result.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        rpm: 1500,
+                        temperature: 75,
+                        pressure: 3000,
+                        voltage: 28
+                    })
+                });
+                
+                result.textContent = `Status: ${response.status}\n`;
+                result.textContent += `Headers:\n`;
+                response.headers.forEach((value, key) => {
+                    result.textContent += `  ${key}: ${value}\n`;
+                });
+                
+                const data = await response.json();
+                result.textContent += `\nResponse:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                result.textContent = `Error: ${error.message}\n${error.stack}`;
+            }
+        }
+    </script>
+</body>
+</html>
