@@ -1,1 +1,14 @@
 .venv
+.git*
+.vscode
+.github
+__pycache__
+tests
+docs
+frontend
+*.md
+test-cors.html
+requirements-dev.txt
+pytest.ini
+setup.cfg
+local.settings.json

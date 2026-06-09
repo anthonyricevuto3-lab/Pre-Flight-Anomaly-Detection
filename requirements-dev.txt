@@ -1,0 +1,11 @@
+# Development and verification dependencies (not deployed to Azure).
+# Install with: pip install -r requirements-dev.txt
+#
+# These tools implement the NPR 7150.2D verification activities:
+#   pytest  - unit testing / verification (SWE-061, SWE-062)
+#   flake8  - static analysis & coding-standard conformance (SWE-134, SWE-135)
+#   mypy    - static type analysis (SWE-135)
+-r requirements.txt
+pytest==8.3.3
+flake8==7.3.0
+mypy==2.1.0

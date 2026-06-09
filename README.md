@@ -1,60 +1,109 @@
 # Pre-Flight Anomaly Detection
 
-This project provides a lightweight anomaly detection system for pre-flight aircraft sensor readings. It uses a robust statistical approach (median + MAD) and is designed to run as a small Azure Function with minimal external dependencies.
+A lightweight anomaly-detection service for pre-flight aircraft sensor
+readings. It uses a robust, dependency-free statistical model (median +
+Median Absolute Deviation) and runs as an Azure Function.
 
-## Highlights
+This codebase is structured to follow NASA software engineering guidance:
+NPR 7150.2D (Software Engineering Requirements), NASA-STD-8739.8B (Software
+Assurance and Software Safety), NASA-HDBK-2203 (the SWEHB), the NASA Secure
+Coding Portal (NPR 7150.2D §3.11), and the NASA/JPL "Power of Ten" rules.
+Coding-standard conformance and static analysis (SWE-134/SWE-135) are
+enforced with `flake8` and `mypy`. See the [`docs/`](docs/) directory.
 
-- Dynamic model training: the Azure Function trains a small robust model on each request using randomized/augmented CSV training data. This avoids a separate training step and keeps deployment simple.
-- Detects anomalies for key sensors: `rpm`, `temperature`, `pressure`, `voltage`.
-- Lightweight and dependency-friendly for edge and cloud deployments.
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [`docs/SOFTWARE_REQUIREMENTS.md`](docs/SOFTWARE_REQUIREMENTS.md) | Uniquely identified, traceable requirements (NPR 7150.2D). |
+| [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Power of Ten rules adapted to Python + project conventions. |
+| [`docs/SOFTWARE_ASSURANCE.md`](docs/SOFTWARE_ASSURANCE.md) | V&V approach, architecture record, secure-coding controls. |
+| [`docs/NASA_COMPLIANCE_MATRIX.md`](docs/NASA_COMPLIANCE_MATRIX.md) | Item-by-item disposition against every referenced NASA directive, standard, handbook, and category. |
+
+## Architecture
+
+```
+function_app.py            # Thin HTTP entry point (Azure Functions)
+preflight/                 # Application package
+  config.py                #   constants & configuration (single source of truth)
+  errors.py                #   typed exception hierarchy
+  robust_stats.py          #   median / MAD primitives
+  anomaly_model.py         #   RobustAnomalyDetector
+  data_repository.py       #   CSV loading & seeded augmentation
+  service.py               #   orchestration & report construction
+  api_support.py           #   CORS, JSON, sanitized error responses
+tests/                     # Verification suite (pytest)
+docs/                      # NASA-aligned engineering documentation
+airplane_data.csv          # Training data
+```
+
+The HTTP layer is isolated from the numerical/business logic, which is
+transport-agnostic and independently unit-testable.
 
 ## Quick Start (local)
 
-1. Set up a Python virtual environment:
-
 ```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1   # on PowerShell
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+func start                      # Azure Functions Core Tools required
 ```
 
-2. Run the Function locally:
+## Verification
 
 ```powershell
-# Start the Functions host (Azure Functions Core Tools required)
-func start
+pip install -r requirements-dev.txt
+flake8 preflight function_app.py tests   # coding standard + static analysis (SWE-134/135)
+mypy preflight function_app.py           # static type analysis (SWE-135)
+pytest                                    # unit tests, zero-warning policy (-W error)
 ```
 
-3. Test the API with a POST to `/api/detect_anomalies` (JSON body with rpm, temperature, pressure, voltage). The function will train a small model dynamically and return detected anomalies plus normal ranges.
+All three checks run as a gate in the deployment CI workflow.
 
-## Demo Frontend
+## API
 
-A small demo frontend is included at `frontend/index.html`. You can open it locally in a browser (or serve with a static server) to send sample payloads to the function and view responses.
+### `GET /api/detect_anomalies`
+Analyzes the entire training data set and returns normal operating ranges,
+a per-feature summary, and the detected anomalies.
 
-- Open `frontend/index.html` in your browser, or serve it from a static host.
-- Edit `frontend/script.js` to set `FUNCTION_URL` if your function is deployed remotely (defaults to `/api/detect_anomalies`).
-
-## API Usage
-
-Send POST requests to the `/api/detect_anomalies` endpoint with JSON data (example):
+### `POST /api/detect_anomalies`
+Classifies one or more caller-supplied readings.
 
 ```json
 {
-    "rpm": 1500,
-    "temperature": 75.0,
-    "pressure": 3000,
-    "voltage": 28.0
+  "rpm": 1500,
+  "temperature": 75.0,
+  "pressure": 3000,
+  "voltage": 28.0
 }
 ```
 
-The function replies with a JSON body containing anomaly flags, detected anomaly details, and calculated normal ranges.
+A single object or an array of objects is accepted. Up to
+`MAX_READINGS_PER_REQUEST` (10,000) readings per request are processed.
 
-## Notes on Training
+### `GET /api/health`
+Returns service name, version, and a UTC timestamp.
 
-- The project no longer requires a separate `train_model.py` step in CI — training is handled dynamically in the function. This simplifies CI/CD and avoids missing-file errors.
+## Configuration
 
-## Repository / Demo
+| Environment variable | Default | Purpose |
+|----------------------|---------|---------|
+| `TRAINING_DATA_PATH` | `<repo>/airplane_data.csv` | Override training data location. |
+| `ALLOWED_ORIGINS` | `*` | CORS allowed origin. Set to an explicit origin in production. |
 
-See the GitHub repo for code and deployment details: https://github.com/anthonyricevuto3-lab/Pre-Flight-Anomaly-Detection
+## Security Notes
 
-If you'd like, I can also add a small GitHub Pages site to host the demo front-end publicly.
+- The previous `/debug` endpoint (which exposed the filesystem, environment
+  variables, and interpreter details) has been **removed** per NASA Secure
+  Coding guidance.
+- Error responses are sanitized; internal detail is logged server-side only.
+- For production, set `ALLOWED_ORIGINS` and require authentication.
+
+## Demo Frontend
+
+A demo frontend is included at [`frontend/index.html`](frontend/index.html).
+Set `FUNCTION_URL` in `frontend/script.js` to point at your deployed function.
+
+## Repository
+
+https://github.com/anthonyricevuto3-lab/Pre-Flight-Anomaly-Detection

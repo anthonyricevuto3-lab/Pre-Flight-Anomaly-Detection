@@ -1,3 +1,5 @@
-﻿azure-functions==1.17.0
-# Note: We've removed pandas, scikit-learn, joblib dependencies 
-# Our function now uses a lightweight dependency-free model
+﻿# Runtime (deployed) dependencies for the Azure Function.
+# The anomaly-detection model is dependency-free (pure standard library);
+# only the Azure Functions runtime binding is required.
+# Development/verification tools live in requirements-dev.txt.
+azure-functions==1.17.0

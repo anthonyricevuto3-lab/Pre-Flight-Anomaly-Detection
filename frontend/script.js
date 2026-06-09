@@ -1,12 +1,12 @@
 // Demo frontend script for Pre-Flight Anomaly Detection
-// Update FUNCTION_URL if your function is hosted elsewhere
-const FUNCTION_URL = 'https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies';
+// Endpoint used to reach the anomaly-detection function.
+const FUNCTION_URL = 'http://localhost:7071/api/detect_anomalies';
 
 function el(id){return document.getElementById(id)}
 
 async function sendPayload(payload){
   const respEl = el('response');
-  respEl.textContent = 'Sending request to Azure Function...';
+  respEl.textContent = 'Sending request...';
   try{
     const res = await fetch(FUNCTION_URL, {
       method: 'POST',
@@ -31,20 +31,10 @@ async function sendPayload(payload){
       respEl.textContent = text;
     }
   }catch(err){
-    respEl.textContent = `Error: ${err.message}\n\nTroubleshooting:\n- Check if Azure Function is running\n- Verify CORS headers are set\n- Check browser console for details\n\nFunction URL: ${FUNCTION_URL}`;
+    respEl.textContent = `Error: ${err.message}\n\nTroubleshooting:\n- Check if the anomaly-detection service is running\n- Verify CORS headers are set\n- Check browser console for details`;
     console.error('Fetch error:', err);
   }
 }
-
-el('send').addEventListener('click', ()=>{
-  const raw = el('payload').value;
-  try{
-    const payload = JSON.parse(raw);
-    sendPayload(payload);
-  }catch(e){
-    el('response').textContent = 'Invalid JSON: '+e.message;
-  }
-});
 
 el('send-rand').addEventListener('click', ()=>{
   // generate small random sample around normal ranges

@@ -14,21 +14,20 @@
 
     <main>
       <section class="intro">
-        <p>This is a small demo frontend for the Pre-Flight Anomaly Detection Azure Function. It sends sample sensor data to the deployed function and displays the response (anomalies, normal ranges, and detected issues).</p>
-        <p class="note">Function URL: <code id="function-url">https://pre-fligt-anomaly-detection-fxenbdg2ced7hrg8.westus3-01.azurewebsites.net/api/detect_anomalies</code></p>
+        <p>This is a demo frontend for the Pre-Flight Anomaly Detection service. It sends randomized sample sensor data to the anomaly-detection function and displays the response (anomalies, normal ranges, and detected issues).</p>
+        <p class="note">This project is engineered to abide by NASA's <a href="https://www.nasa.gov/intelligent-systems-division/software-management-office/nasa-software-engineering-procedural-requirements-standards-and-related-resources/" target="_blank">Software Engineering Procedural Requirements, Standards, and Related Resources</a> (NPR 7150.2, NASA-STD-8739.8, the NASA Secure Coding guidance, and the NASA/JPL "Power of Ten" rules).</p>
       </section>
 
       <section class="controls">
-        <h2>Send Sample Payload</h2>
-        <textarea id="payload" rows="8">{
+        <h2>Sample Payload</h2>
+        <textarea id="payload" rows="8" readonly>{
   "rpm": 1500,
   "temperature": 74,
   "pressure": 3200,
   "voltage": 28.5
 }</textarea>
         <div class="actions">
-          <button id="send">Send to Function</button>
-          <button id="send-rand">Send Random</button>
+          <button id="send-rand">Send Random Sample Data</button>
         </div>
       </section>
 

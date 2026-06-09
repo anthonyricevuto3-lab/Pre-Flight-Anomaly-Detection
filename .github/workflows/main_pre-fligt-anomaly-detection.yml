@@ -37,7 +37,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Optional: Add step to run tests here
+      - name: Install verification dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Static analysis (NPR 7150.2D SWE-134, SWE-135)
+        # Coding-standard conformance and static analysis gate.
+        run: |
+          flake8 preflight function_app.py tests
+          mypy preflight function_app.py
+
+      - name: Run verification suite (NPR 7150.2D SWE-061; NASA-STD-8739.8B)
+        # Verification gate: deployment proceeds only if the test suite
+        # passes under the zero-warning policy defined in pytest.ini.
+        run: pytest
 
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
