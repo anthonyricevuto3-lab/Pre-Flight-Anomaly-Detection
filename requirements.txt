@@ -1,5 +1,14 @@
-﻿# Runtime (deployed) dependencies for the Azure Function.
-# The anomaly-detection model is dependency-free (pure standard library);
-# only the Azure Functions runtime binding is required.
-# Development/verification tools live in requirements-dev.txt.
+﻿# Project dependencies.
+#
+# Runtime (deployed) dependency:
+#   azure-functions - Azure Functions runtime binding. The anomaly-detection
+#                     model itself is dependency-free (pure standard library).
+#
+# Verification / development tools (NPR 7150.2D activities):
+#   pytest  - unit testing / verification (SWE-061, SWE-062)
+#   flake8  - static analysis & coding-standard conformance (SWE-134, SWE-135)
+#   mypy    - static type analysis (SWE-135)
 azure-functions==1.17.0
+pytest==8.3.3
+flake8==7.3.0
+mypy==2.1.0

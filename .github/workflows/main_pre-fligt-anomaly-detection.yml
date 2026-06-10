@@ -37,9 +37,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Install verification dependencies
-        run: pip install -r requirements-dev.txt
-
       - name: Static analysis (NPR 7150.2D SWE-134, SWE-135)
         # Coding-standard conformance and static analysis gate.
         run: |

@@ -52,7 +52,7 @@ func start                      # Azure Functions Core Tools required
 ## Verification
 
 ```powershell
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 flake8 preflight function_app.py tests   # coding standard + static analysis (SWE-134/135)
 mypy preflight function_app.py           # static type analysis (SWE-135)
 pytest                                    # unit tests, zero-warning policy (-W error)

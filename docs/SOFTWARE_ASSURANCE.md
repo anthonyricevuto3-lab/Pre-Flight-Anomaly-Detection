@@ -39,7 +39,7 @@ throughout its lifecycle, scaled to a small research/demonstrator project.
 Run the full verification gate locally:
 
 ```powershell
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 flake8 preflight function_app.py tests
 mypy preflight function_app.py
 pytest
